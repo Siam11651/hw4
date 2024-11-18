@@ -4,3 +4,4 @@ tmp/
 util/
 *~
 *.out
+.vscode
