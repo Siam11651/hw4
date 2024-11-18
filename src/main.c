@@ -1,5 +1,6 @@
 #include <cook/cook.h>
 #include <cook/queue.h>
+#include <cook/hashmap.h>
 #include <errno.h>
 #include <semaphore.h>
 #include <stdio.h>
@@ -9,6 +10,11 @@
 #include <sys/syscall.h>
 
 sem_t chef_semaphore;
+
+typedef struct chef_routine_params {
+    QUEUE_NODE *queue_node;
+    int lock_status;
+} CHEF_ROUTINE_PARAMS;
 
 void *chef_routine(void *node_ptr) {
     run_tasks((QUEUE_NODE *)node_ptr);
@@ -120,6 +126,19 @@ int main(int argc, char *argv[], char **envp) {
     int work_count = make_work_queue(main_recipe, &work_queue, NULL);
     pthread_t *work_threads = (pthread_t *)malloc(sizeof(pthread_t) * work_count);
     int work_index = 0;
+    RECIPE_RUN_HASHMAP recipe_run_hashmap;
+
+    recipe_run_hashmap_init(&recipe_run_hashmap, 1024);
+
+    {
+        QUEUE_NODE *current = work_queue.front;
+
+        while(current) {
+            recipe_run_hashmap_insert(&recipe_run_hashmap, current->data);
+
+            current = current->next;
+        }
+    }
 
     while (1) {
         sem_wait(&chef_semaphore);
@@ -130,10 +149,13 @@ int main(int argc, char *argv[], char **envp) {
             break;
         }
 
+        RECIPE_RUN_HASHMAP_NODE *recipe_node = recipe_run_hashmap_get(&recipe_run_hashmap, front->data);
+        int lock_fail = pthread_mutex_trylock(&recipe_node->recipe_mtx);
+
         for (int i = 0; i < front->dep_count; ++i) {
             sem_wait(&front->semaphore);
         }
-        
+
         pthread_create(&work_threads[work_index], NULL, chef_routine, (void *)front);
 
         ++work_index;
