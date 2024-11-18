@@ -133,7 +133,7 @@ int main(int argc, char *argv[], char **envp) {
         for (int i = 0; i < front->dep_count; ++i) {
             sem_wait(&front->semaphore);
         }
-
+        
         pthread_create(&work_threads[work_index], NULL, chef_routine, (void *)front);
 
         ++work_index;

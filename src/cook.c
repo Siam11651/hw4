@@ -81,18 +81,6 @@ void run_tasks(QUEUE_NODE *node) {
 }
 
 int make_work_queue(RECIPE *recipe, QUEUE *queue, QUEUE_NODE *parent) {
-    {
-        QUEUE_NODE *front = queue->front;
-
-        while(front) {
-            if(strcmp(front->data->name, recipe->name)) {
-                return 0;
-            }
-
-            front = front->next;
-        }
-    }
-
     RECIPE_LINK *current_dependency = recipe->this_depends_on;
     QUEUE_NODE *new_node = make_queue_node(recipe);
     new_node->parent = parent;
