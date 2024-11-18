@@ -122,19 +122,24 @@ int main(int argc, char *argv[], char **envp) {
 
     QUEUE work_queue = {NULL, NULL};
 
-    pthread_mutex_init(&work_queue.mutex, NULL);
-    int work_count = make_work_queue(main_recipe, &work_queue, NULL);
-    pthread_t *work_threads = (pthread_t *)malloc(sizeof(pthread_t) * work_count);
-    int work_index = 0;
-    RECIPE_RUN_HASHMAP recipe_run_hashmap;
+    TRAVERSAL_HASHMAP traversal_hashmap;
 
-    recipe_run_hashmap_init(&recipe_run_hashmap, 1024);
+    traversal_hashmap_init(&traversal_hashmap, 1024);
+    pthread_mutex_init(&work_queue.mutex, NULL);
+    int work_count = make_work_queue(main_recipe, &work_queue, &traversal_hashmap);
+    pthread_t *work_threads = (pthread_t *)malloc(sizeof(pthread_t) * work_count);
+
+    for(int i = 0; i < work_count; ++i) {
+        work_threads[i] = 0;
+    }
+
+    int work_index = 0;
 
     {
         QUEUE_NODE *current = work_queue.front;
 
         while(current) {
-            recipe_run_hashmap_insert(&recipe_run_hashmap, current->data);
+            traversal_hashmap_insert(&traversal_hashmap, current->data);
 
             current = current->next;
         }
@@ -149,20 +154,15 @@ int main(int argc, char *argv[], char **envp) {
             break;
         }
 
-        RECIPE_RUN_HASHMAP_NODE *recipe_node = recipe_run_hashmap_get(&recipe_run_hashmap, front->data);
-        int lock_fail = pthread_mutex_trylock(&recipe_node->recipe_mtx);
-
-        for (int i = 0; i < front->dep_count; ++i) {
-            sem_wait(&front->semaphore);
-        }
-
         pthread_create(&work_threads[work_index], NULL, chef_routine, (void *)front);
 
         ++work_index;
     }
 
     for (int i = 0; i < work_count; ++i) {
-        pthread_join(work_threads[i], NULL);
+        if(work_threads[i]) {
+            pthread_join(work_threads[i], NULL);
+        }
     }
 
     free(work_threads);

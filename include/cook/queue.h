@@ -9,9 +9,6 @@
 typedef struct queue_node {
     RECIPE *data;
     struct queue_node *next;
-    struct queue_node *parent;
-    sem_t semaphore;
-    int dep_count;
 } QUEUE_NODE;
 
 typedef struct queue {

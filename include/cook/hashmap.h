@@ -2,23 +2,22 @@
 #define HASHMAP_H
 
 #include <cookbook.h>
-#include <pthread.h>
 #include <stdlib.h>
 
-typedef struct recipe_run_hashmap_node {
+typedef struct traversal_hashmap_node {
     RECIPE *recipe;
-    pthread_mutex_t recipe_mtx;
-    struct recipe_run_hashmap_node *next;
-} RECIPE_RUN_HASHMAP_NODE;
+    int traversed;
+    struct traversal_hashmap_node *next;
+} TRAVERSAL_HASHMAP_NODE;
 
-typedef struct recipe_run_hashmap {
+typedef struct traversal_hashmap {
     unsigned long long bucket_size;
-    RECIPE_RUN_HASHMAP_NODE **buckets;
-} RECIPE_RUN_HASHMAP;
+    TRAVERSAL_HASHMAP_NODE **buckets;
+} TRAVERSAL_HASHMAP;
 
-void recipe_run_hashmap_init(RECIPE_RUN_HASHMAP *recipe_run_hashmap, unsigned long long bucket_size);
-RECIPE_RUN_HASHMAP_NODE *recipe_run_hashmap_get(RECIPE_RUN_HASHMAP *recipe_run_hashmap, RECIPE *recipe);
-void recipe_run_hashmap_insert(RECIPE_RUN_HASHMAP *recipe_run_hashmap, RECIPE *recipe);
-void recipe_run_hashmap_free(RECIPE_RUN_HASHMAP *recipe_run_hashmap);
+void traversal_hashmap_init(TRAVERSAL_HASHMAP *traversal_hashmap, unsigned long long bucket_size);
+TRAVERSAL_HASHMAP_NODE *traversal_hashmap_get(TRAVERSAL_HASHMAP *traversal_hashmap, RECIPE *recipe);
+void traversal_hashmap_insert(TRAVERSAL_HASHMAP *traversal_hashmap, RECIPE *recipe);
+void traversal_hashmap_free(TRAVERSAL_HASHMAP *traversal_hashmap);
 
 #endif
