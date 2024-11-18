@@ -4,8 +4,6 @@ QUEUE_NODE *make_queue_node(RECIPE *recipe) {
     QUEUE_NODE *new_node = (QUEUE_NODE *)malloc(sizeof(QUEUE_NODE));
     new_node->data = recipe;
     new_node->next = NULL;
-    new_node->parent = NULL;
-    new_node->dep_count = 0;
 
     return new_node;
 }

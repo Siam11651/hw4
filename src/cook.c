@@ -66,7 +66,7 @@ void run_steps(STEP *steps, char *input, char *output) {
     }
 }
 
-void run_tasks(QUEUE_NODE *node) {
+void run_tasks(QUEUE_NODE *node, DEP_HASHMAP *hashmap) {
     TASK *task = node->data->tasks;
 
     while (task) {
@@ -74,30 +74,48 @@ void run_tasks(QUEUE_NODE *node) {
 
         task = task->next;
     }
+
+    RECIPE_LINK *current = node->data->depend_on_this;
+
+    while (current) {
+        DEP_HASHMAP_NODE *node = dep_hashmap_get(hashmap, current->recipe);
+
+        if (node) {
+            sem_post(&node->sem);
+        }
+
+        current = current->next;
+    }
 }
 
-int make_work_queue(RECIPE *recipe, QUEUE *queue, TRAVERSAL_HASHMAP *traversal_hashmap) {
-    {
-        TRAVERSAL_HASHMAP_NODE *node = traversal_hashmap_get(traversal_hashmap, recipe);
-
-        if(node) {
-            return 0;
-        }
-    }
-
+int make_work_queue(RECIPE *recipe, QUEUE *queue, DEP_HASHMAP *dep_hashmap) {
+    DEP_HASHMAP_NODE *node = dep_hashmap_get(dep_hashmap, recipe);
     RECIPE_LINK *current_dependency = recipe->this_depends_on;
     QUEUE_NODE *new_node = make_queue_node(recipe);
     int size = 1;
 
+    if (node == NULL) {
+        dep_hashmap_insert(dep_hashmap, recipe);
+    }
+
     while (current_dependency) {
         if (current_dependency->recipe) {
-            size += make_work_queue(current_dependency->recipe, queue, traversal_hashmap);
+            size += make_work_queue(current_dependency->recipe, queue, dep_hashmap);
+            DEP_HASHMAP_NODE *temp = dep_hashmap_get(dep_hashmap, recipe);
+
+            if (hashset_insert(&temp->deps, current_dependency->recipe) == 0) {
+                ++temp->count;
+            }
         }
 
         current_dependency = current_dependency->next;
     }
 
-    push(queue, new_node);
+    if (node) {
+        return 0;
+    } else {
+        push(queue, new_node);
 
-    return size;
+        return size;
+    }
 }

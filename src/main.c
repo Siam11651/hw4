@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 
+DEP_HASHMAP dep_hashmap;
 sem_t chef_semaphore;
 
 typedef struct chef_routine_params {
@@ -17,8 +18,9 @@ typedef struct chef_routine_params {
 } CHEF_ROUTINE_PARAMS;
 
 void *chef_routine(void *node_ptr) {
-    run_tasks((QUEUE_NODE *)node_ptr);
+    run_tasks((QUEUE_NODE *)node_ptr, &dep_hashmap);
     sem_post(&chef_semaphore);
+    fprintf(stderr, "end %s\n", ((QUEUE_NODE *)node_ptr)->data->name);
     free((QUEUE_NODE *)node_ptr);
 
     return NULL;
@@ -122,11 +124,9 @@ int main(int argc, char *argv[], char **envp) {
 
     QUEUE work_queue = {NULL, NULL};
 
-    TRAVERSAL_HASHMAP traversal_hashmap;
-
-    traversal_hashmap_init(&traversal_hashmap, 1024);
+    dep_hashmap_init(&dep_hashmap, 1024);
     pthread_mutex_init(&work_queue.mutex, NULL);
-    int work_count = make_work_queue(main_recipe, &work_queue, &traversal_hashmap);
+    int work_count = make_work_queue(main_recipe, &work_queue, &dep_hashmap);
     pthread_t *work_threads = (pthread_t *)malloc(sizeof(pthread_t) * work_count);
 
     for(int i = 0; i < work_count; ++i) {
@@ -134,16 +134,6 @@ int main(int argc, char *argv[], char **envp) {
     }
 
     int work_index = 0;
-
-    {
-        QUEUE_NODE *current = work_queue.front;
-
-        while(current) {
-            traversal_hashmap_insert(&traversal_hashmap, current->data);
-
-            current = current->next;
-        }
-    }
 
     while (1) {
         sem_wait(&chef_semaphore);
@@ -154,6 +144,15 @@ int main(int argc, char *argv[], char **envp) {
             break;
         }
 
+        DEP_HASHMAP_NODE *node = dep_hashmap_get(&dep_hashmap, front->data);
+
+        fprintf(stderr, "wait %s\n", front->data->name);
+
+        for(int i = 0; i < node->count; ++i) {
+            sem_wait(&node->sem);
+        }
+
+        fprintf(stderr, "start %s\n", front->data->name);
         pthread_create(&work_threads[work_index], NULL, chef_routine, (void *)front);
 
         ++work_index;
