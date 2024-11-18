@@ -1,0 +1,12 @@
+{
+  "configurations": [
+    {
+      "name": "Python Debugger: Current File with Arguments",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "args": ["-c", "1", "-f", "rsrc/eggs_benedict.ckb", "-m", "hollandaise_sauce", "-w", "10000"]
+    }
+  ]
+}

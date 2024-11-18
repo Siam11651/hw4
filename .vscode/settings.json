@@ -1,0 +1,20 @@
+{
+  "files.associations": {
+    "cookbook.h": "c",
+    "recipe.h": "c",
+    "string.h": "c",
+    "cstring": "c",
+    "types.h": "c",
+    "wait.h": "c",
+    "cook.h": "c",
+    "queue.h": "c"
+  },
+  "C_Cpp.clang_format_fallbackStyle": "{ BasedOnStyle: LLVM, IndentWidth: 4, TabWidth: 4, BreakBeforeBraces: Attach, AllowShortIfStatementsOnASingleLine: false, IndentCaseLabels: false, ColumnLimit: 0, AccessModifierOffset: -4 }",
+  "makefile.launchConfigurations": [
+    {
+      "cwd": "/mnt/hdd/sources/hw4/bin",
+      "binaryPath": "/mnt/hdd/sources/hw4/bin/cook",
+      "binaryArgs": ["-c", "1", "-f", "/mnt/hdd/sources/hw4/rsrc/eggs_benedict.ckb", "eggs_benedict"]
+    }
+  ]
+}
