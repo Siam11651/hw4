@@ -20,7 +20,6 @@ typedef struct chef_routine_params {
 void *chef_routine(void *node_ptr) {
     run_tasks((QUEUE_NODE *)node_ptr, &dep_hashmap);
     sem_post(&chef_semaphore);
-    fprintf(stderr, "end %s\n", ((QUEUE_NODE *)node_ptr)->data->name);
     free((QUEUE_NODE *)node_ptr);
 
     return NULL;
@@ -146,13 +145,10 @@ int main(int argc, char *argv[], char **envp) {
 
         DEP_HASHMAP_NODE *node = dep_hashmap_get(&dep_hashmap, front->data);
 
-        fprintf(stderr, "wait %s\n", front->data->name);
-
         for(int i = 0; i < node->count; ++i) {
             sem_wait(&node->sem);
         }
 
-        fprintf(stderr, "start %s\n", front->data->name);
         pthread_create(&work_threads[work_index], NULL, chef_routine, (void *)front);
 
         ++work_index;
