@@ -5,7 +5,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-void run_steps(STEP *steps, char *input, char *output) {
+int run_steps(STEP *steps, char *input, char *output) {
     STEP *step = steps;
     STEP *prev_step = NULL;
     int prev_pipe_ends[] = {-1, -1};
@@ -73,22 +73,34 @@ void run_steps(STEP *steps, char *input, char *output) {
     }
 
     PROC_LINK *current_proc_link = proc_link;
+    int to_return = 0;
 
     while (current_proc_link) {
         PROC_LINK *next = current_proc_link->next;
+        int error;
 
-        waitpid(current_proc_link->pid, NULL, 0);
+        waitpid(current_proc_link->pid, &error, 0);
         free(current_proc_link);
 
         current_proc_link = next;
+
+        if(error) {
+            to_return = 1;
+        }
     }
+
+    return to_return;
 }
 
-void run_tasks(QUEUE_NODE *node, DEP_HASHMAP *hashmap) {
+int run_tasks(QUEUE_NODE *node, DEP_HASHMAP *hashmap) {
     TASK *task = node->data->tasks;
 
     while (task) {
-        run_steps(task->steps, task->input_file, task->output_file);
+        int error = run_steps(task->steps, task->input_file, task->output_file);
+
+        if(error) {
+            return 1;
+        }
 
         task = task->next;
     }
@@ -104,6 +116,8 @@ void run_tasks(QUEUE_NODE *node, DEP_HASHMAP *hashmap) {
 
         current = current->next;
     }
+
+    return 0;
 }
 
 int make_work_queue(RECIPE *recipe, QUEUE *queue, DEP_HASHMAP *dep_hashmap) {
