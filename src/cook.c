@@ -10,7 +10,7 @@ void run_steps(STEP *steps, char *input, char *output) {
     STEP *prev_step = NULL;
     int prev_pipe_ends[] = {-1, -1};
     int fork_id = -1;
-    int child_count = 0;
+    PROC_LINK *proc_link = NULL;
 
     while (step) {
         STEP *next_step = step->next;
@@ -21,6 +21,19 @@ void run_steps(STEP *steps, char *input, char *output) {
         }
 
         fork_id = fork();
+
+        if (fork_id != 0) {
+            PROC_LINK *new_proc_link = (PROC_LINK *)malloc(sizeof(PROC_LINK));
+            new_proc_link->pid = fork_id;
+            new_proc_link->next = NULL;
+
+            if (proc_link == NULL) {
+                proc_link = new_proc_link;
+            } else {
+                new_proc_link->next = proc_link;
+                proc_link = new_proc_link;
+            }
+        }
 
         if (fork_id == 0) {
             if (prev_step == NULL && input) {
@@ -47,10 +60,10 @@ void run_steps(STEP *steps, char *input, char *output) {
 
             execv("./util/generic_step", step->words);
         } else {
-            ++child_count;
-
-            close(prev_pipe_ends[0]);
-            close(prev_pipe_ends[1]);
+            if (prev_pipe_ends[0] != -1) {
+                close(prev_pipe_ends[0]);
+                close(prev_pipe_ends[1]);
+            }
 
             prev_pipe_ends[0] = pipe_ends[0];
             prev_pipe_ends[1] = pipe_ends[1];
@@ -59,10 +72,15 @@ void run_steps(STEP *steps, char *input, char *output) {
         step = next_step;
     }
 
-    while (child_count) {
-        wait(NULL);
+    PROC_LINK *current_proc_link = proc_link;
 
-        --child_count;
+    while (current_proc_link) {
+        PROC_LINK *next = current_proc_link->next;
+
+        waitpid(current_proc_link->pid, NULL, 0);
+        free(current_proc_link);
+
+        current_proc_link = next;
     }
 }
 
