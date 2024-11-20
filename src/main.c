@@ -1,26 +1,34 @@
 #include <cook/cook.h>
-#include <cook/queue.h>
 #include <cook/hashmap.h>
+#include <cook/queue.h>
 #include <errno.h>
 #include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <sys/syscall.h>
+#include <unistd.h>
 
 DEP_HASHMAP dep_hashmap;
-sem_t chef_semaphore;
 
-typedef struct chef_routine_params {
-    QUEUE_NODE *queue_node;
-    int lock_status;
-} CHEF_ROUTINE_PARAMS;
+void *chef_routine(void *param_ptr) {
+    QUEUE *work_queue_ptr = (QUEUE *)param_ptr;
 
-void *chef_routine(void *node_ptr) {
-    run_tasks((QUEUE_NODE *)node_ptr, &dep_hashmap);
-    sem_post(&chef_semaphore);
-    free((QUEUE_NODE *)node_ptr);
+    for (;;) {
+        QUEUE_NODE *front = pop(work_queue_ptr);
+
+        if (front == NULL) {
+            break;
+        }
+
+        DEP_HASHMAP_NODE *node = dep_hashmap_get(&dep_hashmap, front->data);
+
+        for (int i = 0; i < node->count; ++i) {
+            sem_wait(&node->sem);
+        }
+
+        run_tasks(front, &dep_hashmap);
+    }
 
     return NULL;
 }
@@ -53,7 +61,7 @@ int main(int argc, char *argv[], char **envp) {
                     parsed_c = 1;
                 }
             } else if (strncmp("-f", argv[i], 2) == 0) {
-                if(parsed_f) {
+                if (parsed_f) {
                     malformed_args();
                 } else {
                     state = 2;
@@ -69,7 +77,7 @@ int main(int argc, char *argv[], char **envp) {
         } else if (state == 1) {
             num_chefs = atoi(argv[i]);
             state = 0;
-        } else if(state == 2) {
+        } else if (state == 2) {
             cookbook = argv[i];
             state = 0;
         }
@@ -83,8 +91,6 @@ int main(int argc, char *argv[], char **envp) {
     COOKBOOK *cbp;
     int err = 0;
     FILE *in;
-
-    sem_init(&chef_semaphore, 1, num_chefs);
 
     if ((in = fopen(cookbook, "r")) == NULL) {
         fprintf(stderr, "Can't open cookbook '%s': %s\n", cookbook, strerror(errno));
@@ -125,37 +131,19 @@ int main(int argc, char *argv[], char **envp) {
 
     dep_hashmap_init(&dep_hashmap, 1024);
     pthread_mutex_init(&work_queue.mutex, NULL);
-    int work_count = make_work_queue(main_recipe, &work_queue, &dep_hashmap);
-    pthread_t *work_threads = (pthread_t *)malloc(sizeof(pthread_t) * work_count);
+    make_work_queue(main_recipe, &work_queue, &dep_hashmap);
+    pthread_t *work_threads = (pthread_t *)malloc(sizeof(pthread_t) * num_chefs);
 
-    for(int i = 0; i < work_count; ++i) {
+    for (int i = 0; i < num_chefs; ++i) {
         work_threads[i] = 0;
     }
 
-    int work_index = 0;
-
-    while (1) {
-        sem_wait(&chef_semaphore);
-
-        QUEUE_NODE *front = pop(&work_queue);
-
-        if (front == NULL) {
-            break;
-        }
-
-        DEP_HASHMAP_NODE *node = dep_hashmap_get(&dep_hashmap, front->data);
-
-        for(int i = 0; i < node->count; ++i) {
-            sem_wait(&node->sem);
-        }
-
-        pthread_create(&work_threads[work_index], NULL, chef_routine, (void *)front);
-
-        ++work_index;
+    for (int i = 0; i < num_chefs; ++i) {
+        pthread_create(&work_threads[i], NULL, chef_routine, &work_queue);
     }
 
-    for (int i = 0; i < work_count; ++i) {
-        if(work_threads[i]) {
+    for (int i = 0; i < num_chefs; ++i) {
+        if (work_threads[i]) {
             pthread_join(work_threads[i], NULL);
         }
     }
